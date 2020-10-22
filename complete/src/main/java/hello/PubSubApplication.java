@@ -19,8 +19,8 @@ import org.springframework.integration.annotation.ServiceActivator;
 import org.springframework.integration.channel.DirectChannel;
 import org.springframework.messaging.MessageChannel;
 import org.springframework.messaging.MessageHandler;
+import org.springframework.util.concurrent.ListenableFutureCallback;
 
-import com.google.cloud.pubsub.v1.AckReplyConsumer;
 
 @SpringBootApplication
 public class PubSubApplication {
@@ -46,7 +46,7 @@ public class PubSubApplication {
 	  @Qualifier("pubsubInputChannel") MessageChannel inputChannel,
 	  PubSubTemplate pubSubTemplate) {
 	PubSubInboundChannelAdapter adapter =
-		new PubSubInboundChannelAdapter(pubSubTemplate, "testSubscription");
+    new PubSubInboundChannelAdapter(pubSubTemplate, "spring-sub");
 	adapter.setOutputChannel(inputChannel);
 	adapter.setAckMode(AckMode.MANUAL);
 
@@ -73,7 +73,20 @@ public class PubSubApplication {
   @Bean
   @ServiceActivator(inputChannel = "pubsubOutputChannel")
   public MessageHandler messageSender(PubSubTemplate pubsubTemplate) {
-	return new PubSubMessageHandler(pubsubTemplate, "testTopic");
+    PubSubMessageHandler adapter = new  PubSubMessageHandler(pubsubTemplate, "spring-topic");
+  
+    adapter.setPublishCallback(new ListenableFutureCallback<String>() {
+      @Override
+      public void onFailure(Throwable ex) {
+        LOGGER.info("There was an error sending the message.");
+      }
+
+      @Override
+      public void onSuccess(String result) {
+        LOGGER.info("Message was sent successfully.");
+      }
+    });
+    return adapter;
   }
   // end::messageSender[]
 
